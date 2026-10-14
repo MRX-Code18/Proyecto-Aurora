@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURORA | Pasarela de Pago & Comprobante</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Generador Oficial de PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #1e293b; }
+    .font-mono-card { font-family: 'Space Mono', monospace; letter-spacing: 0.12em; }
+    .card-scene { perspective: 1000px; }
+    .credit-card-inner {
+      position: relative; width: 100%; height: 100%;
+      transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .credit-card-inner.is-flipped { transform: rotateY(180deg); }
+    .card-face {
+      position: absolute; width: 100%; height: 100%;
+      -webkit-backface-visibility: hidden; backface-visibility: hidden;
+      border-radius: 1.25rem; overflow: hidden;
+    }
+    .card-face-back { transform: rotateY(180deg); }
+    .luxury-card-bg {
+      background: linear-gradient(135deg, #111827 0%, #374151 50%, #ff334b 100%);
+    }
+    .card-glass-sheen {
+      background: linear-gradient(115deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-10">
+
+  <!-- CABECERA -->
+  <header class="max-w-6xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="text-2xl font-black tracking-wider text-slate-900 font-['Syne'] uppercase">AURORA<span class="text-red-500">.</span></a>
+    </div>
+
+    <!-- Estado de Usuario -->
+    <div id="user-session-bar" class="flex items-center gap-4 text-sm font-medium">
+      <span id="user-greeting" class="text-slate-600">Comprando como invitado</span>
+      <button onclick="openAuthModal()" id="btn-auth-action" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition">
+        Iniciar Sesión / Registro
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl w-full mx-auto py-8">
+    
+    <!-- VISTA PRINCIPAL CHECKOUT -->
+    <div id="checkout-view" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- COLUMNA IZQUIERDA: RESUMEN DE COMPRA REAL DE LA TIENDA -->
+      <section class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Tarjeta 3D Interactiva -->
+        <div id="card-preview-wrapper" class="card-scene w-full aspect-[1.586/1] max-w-[400px] mx-auto select-none">
+          <div id="creditCard" class="credit-card-inner shadow-2xl rounded-2xl cursor-pointer" onclick="toggleCardFlip()">
+            
+            <!-- Frente -->
+            <div class="card-face luxury-card-bg p-6 text-white flex flex-col justify-between border border-white/20 relative">
+              <div class="card-glass-sheen absolute inset-0 pointer-events-none"></div>
+              <div class="flex justify-between items-start z-10">
+                <div class="w-11 h-8 rounded bg-amber-300/80 border border-amber-400"></div>
+                <span class="font-bold tracking-widest text-xs uppercase text-slate-300">AURORA BLACK</span>
+              </div>
+              <div class="z-10 my-auto">
+                <p id="card-display-number" class="font-mono-card text-lg sm:text-xl font-bold tracking-wider text-white">•••• •••• •••• 4242</p>
+              </div>
+              <div class="flex justify-between text-xs z-10 uppercase tracking-wider">
+                <div>
+                  <span class="text-[9px] text-slate-400 block">Titular</span>
+                  <p id="card-display-name" class="font-bold truncate max-w-[150px]">CLIENTE AURORA</p>
+                </div>
+                <div>
+                  <span class="text-[9px] text-slate-400 block">Vence</span>
+                  <p id="card-display-expiry" class="font-mono-card font-bold">12/28</p>
+                </div>
+                <span id="card-brand-logo" class="font-black italic text-lg text-white">VISA</span>
+              </div>
+            </div>
+
+            <!-- Reverso -->
+            <div class="card-face card-face-back luxury-card-bg text-white flex flex-col justify-between py-6 border border-white/20 relative">
+              <div class="w-full h-10 bg-black mt-2"></div>
+              <div class="px-6 z-10">
+                <div class="flex items-center">
+                  <div class="h-8 flex-1 bg-white/80 rounded-l"></div>
+                  <div class="h-8 w-12 bg-white text-slate-900 font-mono-card font-bold flex items-center justify-center text-xs rounded-r">
+                    <span id="card-display-cvc">123</span>
+                  </div>
+                </div>
+              </div>
+              <div class="px-6 text-[10px] text-slate-400 flex justify-between z-10">
+                <span>aurora.store</span>
+                <span>CVV SEGURO</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Resumen del Carrito Dinámico -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+          <h2 class="text-xs font-bold tracking-wider uppercase text-slate-400 mb-4">Artículos en tu Pedido</h2>
+          <div id="checkout-cart-items" class="space-y-3 max-h-56 overflow-y-auto pr-2 divide-y divide-slate-100 text-sm">
+            <!-- Inyectado dinámicamente -->
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100 space-y-2 text-sm">
+            <div class="flex justify-between text-slate-600">
+              <span>Subtotal</span>
+              <span id="summary-subtotal">$0.00 MXN</span>
+            </div>
+            <div class="flex justify-between text-emerald-600" id="summary-discount-row" style="display:none;">
+              <span>Descuento cupón</span>
+              <span id="summary-discount">-$0.00 MXN</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Envío</span>
+              <span id="summary-shipping">Calculando...</span>
+            </div>
+            <div class="flex justify-between text-lg font-black text-slate-900 pt-2 border-t border-slate-200">
+              <span>Total a pagar</span>
+              <span id="summary-total">$0.00 MXN</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- COLUMNA DERECHA: SELECCIÓN DE MÉTODO DE PAGO Y GESTIÓN -->
+      <section class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-9 border border-slate-200 shadow-sm">
+        
+        <!-- Pestañas de Métodos de Pago -->
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Selecciona tu método de pago</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button onclick="selectPaymentMethod('card')" id="tab-card" class="p-3 rounded-xl border-2 border-slate-900 bg-slate-50 font-bold text-xs flex flex-col items-center gap-2 text-slate-900 transition">
+              <i data-lucide="credit-card" class="w-5 h-5"></i> Tarjeta
+            </button>
+            <button onclick="selectPaymentMethod('paypal')" id="tab-paypal" class="p-3 rounded-xl border-2 border-slate-200 hover:border-slate-400 font-bold text-xs flex flex-col items-center gap-2 text-slate-600 transition">
+              <i data-lucide="wallet" class="w-5 h-5 text-blue-600"></i> PayPal
+            </button>
+            <button onclick="selectPaymentMethod('spei')" id="tab-spei" class="p-3 rounded-xl border-2 border-slate-200 hover:border-slate-400 font-bold text-xs flex flex-col items-center gap-2 text-slate-600 transition">
+              <i data-lucide="landmark" class="w-5 h-5 text-emerald-600"></i> SPEI
+            </button>
+            <button onclick="selectPaymentMethod('oxxo')" id="tab-oxxo" class="p-3 rounded-xl border-2 border-slate-200 hover:border-slate-400 font-bold text-xs flex flex-col items-center gap-2 text-slate-600 transition">
+              <i data-lucide="store" class="w-5 h-5 text-amber-600"></i> OXXO / Efectivo
+            </button>
+          </div>
+        </div>
+
+        <!-- 1. FORMULARIO TARJETA -->
+        <form id="form-card" onsubmit="processOrder(event, 'Tarjeta')" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Nombre del Titular</label>
+            <input type="text" id="cardholder-name" required placeholder="Como aparece en la tarjeta" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold uppercase" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Número de Tarjeta</label>
+            <input type="text" id="card-number" maxlength="19" required placeholder="4242 •••• •••• ••••" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm tracking-wider" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Vencimiento</label>
+              <input type="text" id="card-expiry" maxlength="5" required placeholder="MM/AA" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">CVV / CVC</label>
+              <input type="password" id="card-cvc" maxlength="4" required placeholder="•••" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm" />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <input type="checkbox" id="save-card-check" checked class="w-4 h-4 text-red-500 rounded border-slate-300" />
+            <label for="save-card-check" class="text-xs text-slate-600 font-medium cursor-pointer">Establecer como tarjeta principal en mi cuenta</label>
+          </div>
+
+          <button type="submit" id="btn-pay-card" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl text-sm shadow-lg transition mt-4">
+            Confirmar y Pagar Pedido
+          </button>
+        </form>
+
+        <!-- 2. FORMULARIO PAYPAL -->
+        <form id="form-paypal" onsubmit="processOrder(event, 'PayPal')" class="space-y-4 hidden">
+          <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl text-xs text-blue-900 leading-relaxed">
+            Serás redirigido de forma simulada para autorizar el cargo directo a tu billetera de PayPal.
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Correo Electrónico de PayPal</label>
+            <input type="email" id="paypal-email" required placeholder="ejemplo@correo.com" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold" />
+          </div>
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-sm shadow-lg transition">
+            Continuar con PayPal
+          </button>
+        </form>
+
+        <!-- 3. FORMULARIO SPEI -->
+        <form id="form-spei" onsubmit="processOrder(event, 'SPEI')" class="space-y-4 hidden">
+          <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-xs text-emerald-900 space-y-2">
+            <p class="font-bold">Datos para Transferencia Interbancaria (SPEI):</p>
+            <p>Banco: <strong>STP / AURORA Pay</strong></p>
+            <p>CLABE: <strong>6461 8011 2400 9821 54</strong></p>
+            <p>Concepto: <strong id="spei-concept">AUR-PEDIDO</strong></p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Nombre del Titular que Transfiere</label>
+            <input type="text" id="spei-name" required placeholder="Nombre completo" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold" />
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-sm shadow-lg transition">
+            Generar Orden de Transferencia
+          </button>
+        </form>
+
+        <!-- 4. FORMULARIO OXXO -->
+        <form id="form-oxxo" onsubmit="processOrder(event, 'OXXO Efectivo')" class="space-y-4 hidden">
+          <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-xs text-amber-900 leading-relaxed">
+            Se generará una ficha con código de barras para pagar en cualquier tienda OXXO o tienda de conveniencia dentro de las próximas 48 horas.
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Nombre de quien realiza el pago</label>
+            <input type="text" id="oxxo-name" required placeholder="Nombre y Apellido" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold" />
+          </div>
+          <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-xl text-sm shadow-lg transition">
+            Generar Ficha de Pago OXXO
+          </button>
+        </form>
+
+      </section>
+
+    </div>
+
+    <!-- PANTALLA DE ÉXITO & COMPROBANTE -->
+    <div id="success-view" class="hidden max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-6">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+        <i data-lucide="check" class="w-8 h-8 stroke-[3]"></i>
+      </div>
+      <div>
+        <h3 class="text-2xl font-black text-slate-900 font-['Syne']">¡ORDEN CONFIRMADA!</h3>
+        <p class="text-slate-500 text-sm mt-1">Número de Guía: <strong id="success-tracking" class="text-slate-900 font-mono">AUR-982410-MX</strong></p>
+      </div>
+
+      <!-- Resumen en tarjeta -->
+      <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left text-xs space-y-2 text-slate-700">
+        <div class="flex justify-between">
+          <span>Cliente:</span>
+          <strong id="pdf-client-name" class="text-slate-900">-</strong>
+        </div>
+        <div class="flex justify-between">
+          <span>Método Utilizado:</span>
+          <strong id="pdf-method-name" class="text-slate-900">-</strong>
+        </div>
+        <div class="flex justify-between border-t border-slate-200 pt-2 font-bold text-sm text-slate-900">
+          <span>Total Liquidado:</span>
+          <span id="pdf-total-amount">$0.00 MXN</span>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button onclick="downloadPDFReceipt()" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
+          <i data-lucide="download" class="w-4 h-4"></i> Descargar Comprobante PDF
+        </button>
+        <a href="index.html" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold py-3.5 px-4 rounded-xl transition flex items-center justify-center">
+          Volver a la Tienda
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL DE INICIO DE SESIÓN / REGISTRO -->
+  <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+      
+      <!-- Pestañas Modal -->
+      <div class="flex border-b border-slate-200 mb-6">
+        <button onclick="switchAuthTab('login')" id="btn-tab-login" class="flex-1 pb-3 text-sm font-bold border-b-2 border-slate-900 text-slate-900">Iniciar Sesión</button>
+        <button onclick="switchAuthTab('register')" id="btn-tab-register" class="flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400">Crear Cuenta</button>
+      </div>
+
+      <!-- Form Login -->
+      <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Correo Electrónico</label>
+          <input type="email" id="login-email" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="correo@ejemplo.com" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="login-pass" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="••••••••" />
+            <button type="button" onclick="togglePassVisibility('login-pass', this)" class="absolute right-3 top-2.5 text-slate-400"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-sm transition">Ingresar</button>
+      </form>
+
+      <!-- Form Registro -->
+      <form id="form-register" onsubmit="handleRegister(event)" class="space-y-3 hidden">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nombre Completo</label>
+          <input type="text" id="reg-name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="Tu nombre" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Correo Electrónico</label>
+          <input type="email" id="reg-email" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="correo@ejemplo.com" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Teléfono Móvil (Opcional)</label>
+          <input type="tel" id="reg-phone" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="10 dígitos" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="reg-pass" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" placeholder="••••••••" />
+            <button type="button" onclick="togglePassVisibility('reg-pass', this)" class="absolute right-3 top-2.5 text-slate-400"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="reg-terms" required class="w-4 h-4 text-red-500 rounded border-slate-300" />
+          <label for="reg-terms" class="text-xs text-slate-500">Acepto los términos y condiciones de compra</label>
+        </div>
+        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-sm transition mt-2">Crear mi Cuenta</button>
+      </form>
+
+    </div>
+  </div>
+
+  <script>
+    // Variables de estado
+    let currentOrderData = {
+      items: [],
+      subtotal: 0,
+      discount: 0,
+      shipping: 0,
+      total: 0,
+      clientName: "Cliente Invitado",
+      paymentMethod: "Tarjeta",
+      tracking: "AUR-" + Math.floor(100000 + Math.random() * 900000)
+    };
+
+    let currentUser = JSON.parse(localStorage.getItem('aurora_user')) || null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadOrderFromStorage();
+      checkUserSession();
+      attachCardListeners();
+    });
+
+    // 1. Cargar el carrito real guardado desde index.html
+    function loadOrderFromStorage() {
+      const storedCart = JSON.parse(localStorage.getItem('aurora_cart')) || [];
+      const storedCoupon = localStorage.getItem('aurora_coupon');
+
+      currentOrderData.items = storedCart;
+
+      const container = document.getElementById('checkout-cart-items');
+      container.innerHTML = '';
+
+      if (storedCart.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 text-xs py-4">No hay artículos en tu bolsa.</p>';
+        return;
+      }
+
+      let subtotal = 0;
+      storedCart.forEach(item => {
+        const itemTotal = item.price * item.qty;
+        subtotal += itemTotal;
+
+        const row = document.createElement('div');
+        row.className = 'flex justify-between items-center py-2 text-xs';
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <img src="${item.img}" class="w-10 h-10 object-cover rounded-lg border border-slate-200">
+            <div>
+              <p class="font-bold text-slate-800">${item.name}</p>
+              <span class="text-slate-400">Talla: ${item.selectedSize} × ${item.qty}</span>
+            </div>
+          </div>
+          <span class="font-bold text-slate-800">$${itemTotal.toLocaleString('es-MX')}</span>
+        `;
+        container.appendChild(row);
+      });
+
+      let discount = (storedCoupon === 'URBAN20') ? subtotal * 0.20 : 0;
+      let shipping = (subtotal >= 999) ? 0 : 149;
+      let total = subtotal - discount + shipping;
+
+      currentOrderData.subtotal = subtotal;
+      currentOrderData.discount = discount;
+      currentOrderData.shipping = shipping;
+      currentOrderData.total = total;
+
+      document.getElementById('summary-subtotal').textContent = `$${subtotal.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`;
+      if (discount > 0) {
+        document.getElementById('summary-discount-row').style.display = 'flex';
+        document.getElementById('summary-discount').textContent = `-$${discount.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`;
+      }
+      document.getElementById('summary-shipping').textContent = shipping === 0 ? 'GRATIS' : `$${shipping} MXN`;
+      document.getElementById('summary-total').textContent = `$${total.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`;
+    }
+
+    // 2. Control de Tarjeta 3D
+    const creditCard = document.getElementById('creditCard');
+    function toggleCardFlip() { creditCard.classList.toggle('is-flipped'); }
+
+    function attachCardListeners() {
+      const nameInput = document.getElementById('cardholder-name');
+      const numberInput = document.getElementById('card-number');
+      const expiryInput = document.getElementById('card-expiry');
+      const cvcInput = document.getElementById('card-cvc');
+
+      nameInput.addEventListener('input', e => {
+        document.getElementById('card-display-name').textContent = e.target.value.toUpperCase() || 'CLIENTE AURORA';
+      });
+
+      numberInput.addEventListener('input', e => {
+        let raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+        let formatted = raw.match(/.{1,4}/g)?.join(' ') || '';
+        e.target.value = formatted;
+        document.getElementById('card-display-number').textContent = formatted || '•••• •••• •••• 4242';
+      });
+
+      expiryInput.addEventListener('input', e => {
+        let raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+        if (raw.length >= 2) e.target.value = raw.slice(0,2) + '/' + raw.slice(2);
+        document.getElementById('card-display-expiry').textContent = e.target.value || '12/28';
+      });
+
+      cvcInput.addEventListener('focus', () => creditCard.classList.add('is-flipped'));
+      cvcInput.addEventListener('blur', () => creditCard.classList.remove('is-flipped'));
+      cvcInput.addEventListener('input', e => {
+        document.getElementById('card-display-cvc').textContent = e.target.value || '123';
+      });
+    }
+
+    // 3. Cambio de métodos de pago
+    function selectPaymentMethod(method) {
+      ['card', 'paypal', 'spei', 'oxxo'].forEach(m => {
+        document.getElementById(`form-${m}`).classList.add('hidden');
+        document.getElementById(`tab-${m}`).className = 'p-3 rounded-xl border-2 border-slate-200 hover:border-slate-400 font-bold text-xs flex flex-col items-center gap-2 text-slate-600 transition';
+      });
+
+      document.getElementById(`form-${method}`).classList.remove('hidden');
+      document.getElementById(`tab-${method}`).className = 'p-3 rounded-xl border-2 border-slate-900 bg-slate-50 font-bold text-xs flex flex-col items-center gap-2 text-slate-900 transition';
+      
+      const cardWrap = document.getElementById('card-preview-wrapper');
+      cardWrap.style.display = (method === 'card') ? 'block' : 'none';
+    }
+
+    // 4. Proceso de Pedido y Despliegue de Comprobante
+    function processOrder(e, method) {
+      e.preventDefault();
+
+      if (method === 'Tarjeta') {
+        currentOrderData.clientName = document.getElementById('cardholder-name').value;
+      } else if (method === 'PayPal') {
+        currentOrderData.clientName = document.getElementById('paypal-email').value;
+      } else if (method === 'SPEI') {
+        currentOrderData.clientName = document.getElementById('spei-name').value;
+      } else if (method === 'OXXO Efectivo') {
+        currentOrderData.clientName = document.getElementById('oxxo-name').value;
+      }
+
+      currentOrderData.paymentMethod = method;
+
+      // Ocultar formulario y mostrar pantalla de éxito
+      document.getElementById('checkout-view').classList.add('hidden');
+      document.getElementById('success-view').classList.remove('hidden');
+
+      document.getElementById('success-tracking').textContent = currentOrderData.tracking;
+      document.getElementById('pdf-client-name').textContent = currentOrderData.clientName;
+      document.getElementById('pdf-method-name').textContent = currentOrderData.paymentMethod;
+      document.getElementById('pdf-total-amount').textContent = `$${currentOrderData.total.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`;
+
+      // Vaciar carrito
+      localStorage.removeItem('aurora_cart');
+    }
+
+    // 5. Descarga de Comprobante Oficial PDF
+    function downloadPDFReceipt() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // Encabezado
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text("AURORA CLOTHING STORE", 20, 25);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Comprobante Oficial de Compra • Moda Urbana", 20, 32);
+      doc.text(`Fecha: ${new Date().toLocaleDateString('es-MX')} | Guía: ${currentOrderData.tracking}`, 20, 38);
+
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, 44, 190, 44);
+
+      // Datos del Comprador
+      doc.setFont("helvetica", "bold");
+      doc.text("DATOS DE FACTURACIÓN Y PAGO:", 20, 52);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Cliente: ${currentOrderData.clientName}`, 20, 58);
+      doc.text(`Método de Pago: ${currentOrderData.paymentMethod}`, 20, 64);
+      doc.text(`Estado del Pago: Aprobado / Liquidado`, 20, 70);
+
+      // Tabla de Prendas
+      doc.line(20, 76, 190, 76);
+      doc.setFont("helvetica", "bold");
+      doc.text("DESCRIPCIÓN DE PRENDAS", 20, 82);
+      doc.text("TALLA", 120, 82);
+      doc.text("CANT", 145, 82);
+      doc.text("IMPORTE", 165, 82);
+      doc.line(20, 85, 190, 85);
+
+      let y = 92;
+      doc.setFont("helvetica", "normal");
+
+      currentOrderData.items.forEach(item => {
+        doc.text(item.name.substring(0, 40), 20, y);
+        doc.text(String(item.selectedSize), 122, y);
+        doc.text(String(item.qty), 148, y);
+        doc.text(`$${(item.price * item.qty).toLocaleString('es-MX')}`, 165, y);
+        y += 8;
+      });
+
+      // Totales
+      doc.line(20, y + 4, 190, y + 4);
+      y += 12;
+      doc.text(`Subtotal:`, 130, y);
+      doc.text(`$${currentOrderData.subtotal.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`, 165, y);
+      
+      y += 6;
+      doc.text(`Descuento:`, 130, y);
+      doc.text(`-$${currentOrderData.discount.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`, 165, y);
+
+      y += 6;
+      doc.text(`Costo de Envío:`, 130, y);
+      doc.text(`$${currentOrderData.shipping.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`, 165, y);
+
+      y += 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(`TOTAL PAGADO:`, 130, y);
+      doc.text(`$${currentOrderData.total.toLocaleString('es-MX', {minimumFractionDigits:2})} MXN`, 165, y);
+
+      // Pie de comprobante
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text("Gracias por tu compra en AURORA. Conserva este comprobante para cualquier cambio o aclaración.", 20, 270);
+
+      doc.save(`Comprobante_AURORA_${currentOrderData.tracking}.pdf`);
+    }
+
+    // 6. Manejo de Inicio de Sesión y Registro
+    function openAuthModal() { document.getElementById('auth-modal').classList.remove('hidden'); }
+    function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+
+    function switchAuthTab(tab) {
+      if (tab === 'login') {
+        document.getElementById('form-login').classList.remove('hidden');
+        document.getElementById('form-register').classList.add('hidden');
+        document.getElementById('btn-tab-login').className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-slate-900 text-slate-900';
+        document.getElementById('btn-tab-register').className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400';
+      } else {
+        document.getElementById('form-login').classList.add('hidden');
+        document.getElementById('form-register').classList.remove('hidden');
+        document.getElementById('btn-tab-register').className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-slate-900 text-slate-900';
+        document.getElementById('btn-tab-login').className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400';
+      }
+    }
+
+    function togglePassVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const user = {
+        name: document.getElementById('reg-name').value,
+        email: document.getElementById('reg-email').value,
+        phone: document.getElementById('reg-phone').value
+      };
+      localStorage.setItem('aurora_user', JSON.stringify(user));
+      currentUser = user;
+      checkUserSession();
+      closeAuthModal();
+      alert('¡Cuenta creada e iniciada con éxito!');
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const user = { name: email.split('@')[0].toUpperCase(), email: email };
+      localStorage.setItem('aurora_user', JSON.stringify(user));
+      currentUser = user;
+      checkUserSession();
+      closeAuthModal();
+    }
+
+    function checkUserSession() {
+      if (currentUser) {
+        document.getElementById('user-greeting').innerHTML = `Hola, <strong>${currentUser.name}</strong>`;
+        document.getElementById('btn-auth-action').textContent = 'Cerrar Sesión';
+        document.getElementById('btn-auth-action').onclick = () => {
+          localStorage.removeItem('aurora_user');
+          currentUser = null;
+          location.reload();
+        };
+        // Autollenar titular de tarjeta si está disponible
+        document.getElementById('cardholder-name').value = currentUser.name;
+        document.getElementById('card-display-name').textContent = currentUser.name;
+      }
+    }
+  </script>
+</body>
+</html>
